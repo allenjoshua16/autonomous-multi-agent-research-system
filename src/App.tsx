@@ -1,249 +1,301 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
-  AlertTriangle,
-  BarChart3,
-  Bug,
+  Activity,
+  BrainCircuit,
   CheckCircle2,
-  Code2,
-  Lightbulb,
+  ChevronRight,
+  Database,
+  FileSearch,
+  GitBranch,
+  Layers3,
+  Network,
+  Play,
+  ShieldCheck,
   Sparkles,
-  Wand2,
+  Wrench,
 } from 'lucide-react'
-import { analyzeSnippet, type ReviewCategory, type Severity } from './lib/analyzer'
 import {
-  getAnalyzerVariant,
-  logLlmTrace,
-  logReviewTelemetry,
-} from './lib/analytics'
+  AGENTS,
+  SAMPLE_CORPUS,
+  buildResearchRun,
+  type AgentId,
+  type ResearchRun,
+} from './lib/researchSystem'
 import './App.css'
 
-const sampleSnippet = `function getUserName(user) {
-  var name = user.profile.name
-  console.log('Loaded user', user)
-  return name.toUpperCase()
-}`
-
-const categoryCopy: Record<ReviewCategory, { label: string; icon: typeof Bug }> = {
-  bugs: { label: 'Bugs', icon: Bug },
-  improvements: { label: 'Improvements', icon: Lightbulb },
-  style: { label: 'Style', icon: Wand2 },
-}
-
-const severityRank: Record<Severity, number> = {
-  high: 1,
-  medium: 2,
-  low: 3,
-}
-
-const applyAnalyzerVariant = (variant: 'rules_v1' | 'rules_v2', code: string, language: string) => {
-  const baseReview = analyzeSnippet(code, language)
-  if (variant === 'rules_v1') return baseReview
-
-  const findings = [...baseReview.findings]
-  if (
-    findings.length > 0 &&
-    language === 'python' &&
-    /\binput\s*\(/.test(code) &&
-    !/try\s*:/.test(code)
-  ) {
-    findings.push({
-      id: `improvements-${findings.length + 1}`,
-      category: 'improvements',
-      severity: 'low',
-      title: 'A/B variant adds input guard recommendation',
-      detail:
-        'This analyzer variant recommends explicit validation around interactive input paths.',
-      suggestion:
-        'Wrap parsing/validation logic in a function and guard invalid values before control flow branches.',
-    })
-  }
-
-  const penalty = findings.reduce(
-    (sum, finding) =>
-      sum + (finding.severity === 'high' ? 18 : finding.severity === 'medium' ? 10 : 5),
-    0,
-  )
-  const score = Math.max(15, Math.min(100, 100 - penalty))
-  return {
-    ...baseReview,
-    findings,
-    score,
-  }
+const agentTone: Record<AgentId, string> = {
+  scout: 'Retrieval',
+  analyst: 'Analysis',
+  skeptic: 'Risk',
+  strategist: 'Decision',
 }
 
 function App() {
-  const [code, setCode] = useState(sampleSnippet)
-  const [language, setLanguage] = useState('javascript')
-  const [activeCategory, setActiveCategory] = useState<ReviewCategory | 'all'>('all')
-  const analyzerVariant = useMemo(() => getAnalyzerVariant(), [])
-  const lastTelemetrySignature = useRef('')
-
-  const review = useMemo(
-    () => applyAnalyzerVariant(analyzerVariant, code, language),
-    [analyzerVariant, code, language],
+  const [topic, setTopic] = useState(
+    'Should a mid-market SaaS company invest in autonomous support agents this quarter?',
   )
+  const [objective, setObjective] = useState('Board-ready recommendation with risks and next actions')
+  const [selectedAgents, setSelectedAgents] = useState<AgentId[]>([
+    'scout',
+    'analyst',
+    'skeptic',
+    'strategist',
+  ])
+  const [activeStep, setActiveStep] = useState(4)
+  const [runs, setRuns] = useState<ResearchRun[]>(() => [
+    buildResearchRun(
+      'Should a mid-market SaaS company invest in autonomous support agents this quarter?',
+      'Board-ready recommendation with risks and next actions',
+      ['scout', 'analyst', 'skeptic', 'strategist'],
+    ),
+  ])
 
-  useEffect(() => {
-    const signature = `${language}:${code}:${analyzerVariant}:${review.score}:${review.findings
-      .map((item) => item.id)
-      .join(',')}`
-    if (signature === lastTelemetrySignature.current) return
-    lastTelemetrySignature.current = signature
+  const currentRun = runs[0]
+  const visibleSteps = currentRun.timeline.slice(0, activeStep + 1)
+  const activeAgentIds = useMemo(() => new Set(selectedAgents), [selectedAgents])
 
-    const startedAt = performance.now()
-    logReviewTelemetry(code, language, review, analyzerVariant)
-    logLlmTrace({
-      provider: 'local-rules-engine',
-      model: analyzerVariant,
-      promptVersion: 'ruleset_v1',
-      latencyMs: Math.max(1, Math.round(performance.now() - startedAt)),
-      inputTokens: Math.round(code.length / 4),
-      outputTokens: Math.max(20, review.findings.length * 26),
-      costUsd: 0,
-      status: 'success',
+  function toggleAgent(agentId: AgentId) {
+    setSelectedAgents((current) => {
+      if (current.includes(agentId) && current.length > 2) {
+        return current.filter((id) => id !== agentId)
+      }
+      if (!current.includes(agentId)) {
+        return [...current, agentId]
+      }
+      return current
     })
-  }, [analyzerVariant, code, language, review])
+  }
 
-  const filteredFindings = review.findings
-    .filter((finding) => activeCategory === 'all' || finding.category === activeCategory)
-    .sort((a, b) => severityRank[a.severity] - severityRank[b.severity])
-
-  const counts = review.findings.reduce(
-    (acc, finding) => {
-      acc[finding.category] += 1
-      return acc
-    },
-    { bugs: 0, improvements: 0, style: 0 } as Record<ReviewCategory, number>,
-  )
+  function runWorkflow() {
+    const nextRun = buildResearchRun(topic, objective, selectedAgents)
+    setRuns((current) => [nextRun, ...current].slice(0, 4))
+    setActiveStep(nextRun.timeline.length - 1)
+  }
 
   return (
     <main className="app-shell">
-      <section className="workspace-header">
+      <section className="top-band">
+        <div className="brand-mark">
+          <Network size={28} />
+        </div>
         <div>
-          <p className="eyebrow">
-            <Sparkles size={16} />
-            AI code review foundation
-          </p>
-          <h1>Code feedback for bugs, improvements, and style</h1>
-          <p className="header-copy">
-            Paste a snippet, choose the language, and get a practical review with
-            severity, reasoning, and concrete next steps.
-          </p>
+          <p className="eyebrow">Autonomous Multi-agent Research System</p>
+          <h1>Collaborative AI agents for RAG research, memory, tools, and decisions</h1>
         </div>
-        <div className="score-panel" aria-label="Review score">
-          <span>{review.score}</span>
-          <p>quality score</p>
-        </div>
+        <button className="primary-action" type="button" onClick={runWorkflow}>
+          <Play size={18} />
+          Run agents
+        </button>
       </section>
 
-      <section className="review-grid">
-        <div className="editor-pane">
-          <div className="pane-toolbar">
-            <div className="toolbar-title">
-              <Code2 size={18} />
-              <span>Snippet</span>
-            </div>
-            <select
-              aria-label="Language"
-              value={language}
-              onChange={(event) => setLanguage(event.target.value)}
-            >
-              <option value="javascript">JavaScript</option>
-              <option value="typescript">TypeScript</option>
-              <option value="python">Python</option>
-              <option value="java">Java</option>
-              <option value="sql">SQL</option>
-            </select>
-          </div>
+      <section className="control-grid" aria-label="Research controls">
+        <div className="query-panel">
+          <label htmlFor="topic">Research question</label>
           <textarea
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            spellCheck={false}
-            aria-label="Code snippet"
+            id="topic"
+            value={topic}
+            onChange={(event) => setTopic(event.target.value)}
+            rows={4}
+          />
+          <label htmlFor="objective">Decision objective</label>
+          <input
+            id="objective"
+            value={objective}
+            onChange={(event) => setObjective(event.target.value)}
           />
         </div>
 
-        <div className="results-pane">
-          <div className="summary-strip">
-            <CheckCircle2 size={20} />
-            <p>{review.summary}</p>
+        <div className="agent-panel">
+          <div className="panel-heading">
+            <BrainCircuit size={18} />
+            <h2>Agent team</h2>
           </div>
-
-          <div className="metrics-grid" aria-label="Code metrics">
-            <Metric label="Lines" value={review.metrics.lines} />
-            <Metric label="Characters" value={review.metrics.characters} />
-            <Metric label="Code signals" value={review.metrics.functions} />
-            <Metric label="Comments" value={review.metrics.comments} />
-          </div>
-
-          <div className="filter-row" aria-label="Finding filters">
-            <button
-              className={activeCategory === 'all' ? 'active' : ''}
-              type="button"
-              onClick={() => setActiveCategory('all')}
-            >
-              All
-              <span>{review.findings.length}</span>
-            </button>
-            {(Object.keys(categoryCopy) as ReviewCategory[]).map((category) => {
-              const Icon = categoryCopy[category].icon
-              return (
-                <button
-                  className={activeCategory === category ? 'active' : ''}
-                  key={category}
-                  type="button"
-                  onClick={() => setActiveCategory(category)}
-                >
-                  <Icon size={15} />
-                  {categoryCopy[category].label}
-                  <span>{counts[category]}</span>
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="findings-list">
-            {filteredFindings.length > 0 ? (
-              filteredFindings.map((finding) => {
-                const Icon = categoryCopy[finding.category].icon
-                return (
-                  <article className="finding" key={finding.id}>
-                    <div className="finding-header">
-                      <div>
-                        <Icon size={18} />
-                        <h2>{finding.title}</h2>
-                      </div>
-                      <span className={`severity ${finding.severity}`}>
-                        {finding.severity}
-                      </span>
-                    </div>
-                    <p>{finding.detail}</p>
-                    <div className="suggestion">
-                      <AlertTriangle size={16} />
-                      <span>{finding.suggestion}</span>
-                    </div>
-                  </article>
-                )
-              })
-            ) : (
-              <div className="empty-state">
-                <BarChart3 size={24} />
-                <p>No findings in this category.</p>
-              </div>
-            )}
+          <div className="agent-list">
+            {AGENTS.map((agent) => (
+              <button
+                className={activeAgentIds.has(agent.id) ? 'agent-card selected' : 'agent-card'}
+                key={agent.id}
+                type="button"
+                onClick={() => toggleAgent(agent.id)}
+                aria-pressed={activeAgentIds.has(agent.id)}
+              >
+                <span className="agent-initial">{agent.name.charAt(0)}</span>
+                <span>
+                  <strong>{agent.name}</strong>
+                  <small>{agentTone[agent.id]} agent</small>
+                </span>
+                {activeAgentIds.has(agent.id) && <CheckCircle2 size={18} />}
+              </button>
+            ))}
           </div>
         </div>
       </section>
 
+      <section className="system-grid">
+        <aside className="pipeline-panel">
+          <div className="panel-heading">
+            <GitBranch size={18} />
+            <h2>Run pipeline</h2>
+          </div>
+          <div className="timeline">
+            {currentRun.timeline.map((step, index) => (
+              <button
+                className={index <= activeStep ? 'timeline-step complete' : 'timeline-step'}
+                key={step.title}
+                type="button"
+                onClick={() => setActiveStep(index)}
+              >
+                <span>{index + 1}</span>
+                <strong>{step.title}</strong>
+                <small>{step.detail}</small>
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        <section className="brief-panel">
+          <div className="brief-header">
+            <div>
+              <p className="eyebrow">Decision brief</p>
+              <h2>{currentRun.recommendation.title}</h2>
+            </div>
+            <div className="confidence">
+              <strong>{currentRun.confidence}%</strong>
+              <span>confidence</span>
+            </div>
+          </div>
+
+          <div className="status-strip">
+            {visibleSteps.map((step) => (
+              <span key={step.title}>
+                <Activity size={14} />
+                {step.title}
+              </span>
+            ))}
+          </div>
+
+          <p className="brief-summary">{currentRun.recommendation.summary}</p>
+
+          <div className="insight-grid">
+            {currentRun.agentFindings.map((finding) => (
+              <article className="insight-card" key={finding.agentId}>
+                <div>
+                  <span className="agent-initial compact">
+                    {AGENTS.find((agent) => agent.id === finding.agentId)?.name.charAt(0)}
+                  </span>
+                  <h3>{finding.heading}</h3>
+                </div>
+                <p>{finding.detail}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      </section>
+
+      <section className="evidence-grid">
+        <WorkspacePanel
+          icon={<FileSearch size={18} />}
+          title="RAG retrieval"
+          items={currentRun.retrievals.map((item) => ({
+            title: item.title,
+            detail: `${item.relevance}% match · ${item.excerpt}`,
+          }))}
+        />
+        <WorkspacePanel
+          icon={<Database size={18} />}
+          title="Shared memory"
+          items={currentRun.memory.map((item) => ({
+            title: item.key,
+            detail: item.value,
+          }))}
+        />
+        <WorkspacePanel
+          icon={<Wrench size={18} />}
+          title="Tool calls"
+          items={currentRun.toolCalls.map((item) => ({
+            title: item.tool,
+            detail: `${item.agent}: ${item.result}`,
+          }))}
+        />
+      </section>
+
+      <section className="decision-grid">
+        <div className="decision-panel">
+          <div className="panel-heading">
+            <ShieldCheck size={18} />
+            <h2>Recommendation logic</h2>
+          </div>
+          {currentRun.recommendation.actions.map((action) => (
+            <div className="action-row" key={action}>
+              <ChevronRight size={17} />
+              <span>{action}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="source-panel">
+          <div className="panel-heading">
+            <Layers3 size={18} />
+            <h2>Knowledge base</h2>
+          </div>
+          <div className="source-list">
+            {SAMPLE_CORPUS.map((source) => (
+              <article key={source.id}>
+                <strong>{source.title}</strong>
+                <span>{source.type}</span>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className="history-panel">
+          <div className="panel-heading">
+            <Sparkles size={18} />
+            <h2>Recent runs</h2>
+          </div>
+          {runs.map((run) => (
+            <button
+              className="history-item"
+              key={run.id}
+              type="button"
+              onClick={() => {
+                setRuns((current) => [run, ...current.filter((item) => item.id !== run.id)])
+                setActiveStep(run.timeline.length - 1)
+              }}
+            >
+              <strong>{run.topic}</strong>
+              <span>{run.confidence}% confidence</span>
+            </button>
+          ))}
+        </div>
+      </section>
     </main>
   )
 }
 
-function Metric({ label, value }: { label: string; value: number | string }) {
+function WorkspacePanel({
+  icon,
+  title,
+  items,
+}: {
+  icon: ReactNode
+  title: string
+  items: Array<{ title: string; detail: string }>
+}) {
   return (
-    <div className="metric">
-      <strong>{value}</strong>
-      <span>{label}</span>
+    <div className="workspace-panel">
+      <div className="panel-heading">
+        {icon}
+        <h2>{title}</h2>
+      </div>
+      <div className="workspace-list">
+        {items.map((item) => (
+          <article key={`${title}-${item.title}`}>
+            <strong>{item.title}</strong>
+            <p>{item.detail}</p>
+          </article>
+        ))}
+      </div>
     </div>
   )
 }
