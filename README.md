@@ -29,21 +29,20 @@ The service can call Anthropic Claude when `ANTHROPIC_API_KEY` is configured. If
 From the project root:
 
 ```powershell
-cd "C:\Users\allen\OneDrive\Documents\New project"
 npm install
 ```
 
 Then install backend dependencies:
 
 ```powershell
-cd "C:\Users\allen\OneDrive\Documents\New project\agentic-ai-backend"
+cd agentic-ai-backend
 python -m pip install -e ".[dev]"
 ```
 
 ## Run The Backend Locally
 
 ```powershell
-cd "C:\Users\allen\OneDrive\Documents\New project\agentic-ai-backend"
+cd agentic-ai-backend
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -86,7 +85,6 @@ If `ANTHROPIC_API_KEY` is empty, the response should include:
 From the project root:
 
 ```powershell
-cd "C:\Users\allen\OneDrive\Documents\New project"
 npm run dev
 ```
 
@@ -109,7 +107,7 @@ npm run build
 Backend:
 
 ```powershell
-cd "C:\Users\allen\OneDrive\Documents\New project\agentic-ai-backend"
+cd agentic-ai-backend
 python -m pytest
 python -m ruff check .
 ```
@@ -119,7 +117,7 @@ python -m ruff check .
 For a fuller local stack with PostgreSQL and Redis:
 
 ```powershell
-cd "C:\Users\allen\OneDrive\Documents\New project\agentic-ai-backend"
+cd agentic-ai-backend
 Copy-Item .env.example .env
 docker compose up --build
 ```
