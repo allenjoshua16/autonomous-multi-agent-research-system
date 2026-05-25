@@ -42,6 +42,10 @@ function App() {
     'strategist',
   ])
   const [activeStep, setActiveStep] = useState(4)
+  const [isRunning, setIsRunning] = useState(false)
+  const [runNotice, setRunNotice] = useState(
+    'Local simulation is ready. Add OPENAI_API_KEY to enable real LLM agent reasoning.',
+  )
   const [runs, setRuns] = useState<ResearchRun[]>(() => [
     buildResearchRun(
       'Should a mid-market SaaS company invest in autonomous support agents this quarter?',
@@ -66,10 +70,19 @@ function App() {
     })
   }
 
-  function runWorkflow() {
-    const nextRun = buildResearchRun(topic, objective, selectedAgents)
+  async function runWorkflow() {
+    setIsRunning(true)
+    setRunNotice('Sending the research question to the AI orchestration endpoint...')
+
+    const nextRun = await runAiWorkflow(topic, objective, selectedAgents)
     setRuns((current) => [nextRun, ...current].slice(0, 4))
     setActiveStep(nextRun.timeline.length - 1)
+    setRunNotice(
+      nextRun.mode === 'ai'
+        ? 'AI run complete. The brief was generated through the OpenAI-backed endpoint.'
+        : 'OpenAI is not configured or returned an error, so the app used the local fallback.',
+    )
+    setIsRunning(false)
   }
 
   return (
@@ -82,10 +95,22 @@ function App() {
           <p className="eyebrow">Autonomous Multi-agent Research System</p>
           <h1>Collaborative AI agents for RAG research, memory, tools, and decisions</h1>
         </div>
-        <button className="primary-action" type="button" onClick={runWorkflow}>
+        <button
+          className="primary-action"
+          type="button"
+          onClick={runWorkflow}
+          disabled={isRunning}
+        >
           <Play size={18} />
-          Run agents
+          {isRunning ? 'Running...' : 'Run AI agents'}
         </button>
+      </section>
+
+      <section className="run-mode-strip" aria-label="AI run status">
+        <span className={currentRun.mode === 'ai' ? 'mode-pill ai' : 'mode-pill'}>
+          {currentRun.mode === 'ai' ? 'LLM powered' : 'Local fallback'}
+        </span>
+        <p>{runNotice}</p>
       </section>
 
       <section className="control-grid" aria-label="Research controls">
@@ -261,6 +286,11 @@ function App() {
               onClick={() => {
                 setRuns((current) => [run, ...current.filter((item) => item.id !== run.id)])
                 setActiveStep(run.timeline.length - 1)
+                setRunNotice(
+                  run.mode === 'ai'
+                    ? 'Showing a previous OpenAI-backed research run.'
+                    : 'Showing a previous local simulation run.',
+                )
               }}
             >
               <strong>{run.topic}</strong>
@@ -271,6 +301,30 @@ function App() {
       </section>
     </main>
   )
+}
+
+async function runAiWorkflow(
+  topic: string,
+  objective: string,
+  selectedAgents: AgentId[],
+): Promise<ResearchRun> {
+  const fallbackRun = buildResearchRun(topic, objective, selectedAgents)
+
+  try {
+    const response = await fetch('/api/research', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, objective, selectedAgents }),
+    })
+    const payload = (await response.json()) as {
+      run?: ResearchRun
+      fallbackRun?: ResearchRun
+    }
+
+    return payload.run ?? payload.fallbackRun ?? fallbackRun
+  } catch {
+    return fallbackRun
+  }
 }
 
 function WorkspacePanel({

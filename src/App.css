@@ -87,6 +87,44 @@ h3 {
   white-space: nowrap;
 }
 
+.primary-action:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.run-mode-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.run-mode-strip p {
+  margin-bottom: 0;
+  color: var(--text-soft);
+  font-size: 14px;
+}
+
+.mode-pill {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #7a4f12;
+  background: #f6f4ec;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.mode-pill.ai {
+  color: #174434;
+  background: #e5f2eb;
+}
+
 .control-grid,
 .system-grid,
 .evidence-grid,
@@ -468,6 +506,11 @@ textarea {
 
   .primary-action {
     width: 100%;
+  }
+
+  .run-mode-strip {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .agent-list,

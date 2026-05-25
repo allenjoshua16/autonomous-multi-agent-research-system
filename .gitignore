@@ -12,6 +12,9 @@ dist
 dist-ssr
 screenshots
 datastory
+.env
+.env.*
+!.env.example
 *.local
 
 # Editor directories and files

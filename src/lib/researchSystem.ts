@@ -39,6 +39,7 @@ export type AgentFinding = {
 
 export type ResearchRun = {
   id: string
+  mode: 'local' | 'ai'
   topic: string
   objective: string
   confidence: number
@@ -142,6 +143,7 @@ export function buildResearchRun(
 
   return {
     id: `${Date.now()}-${Math.round(Math.random() * 10000)}`,
+    mode: 'local',
     topic: normalizedTopic,
     objective: normalizedObjective,
     confidence,
