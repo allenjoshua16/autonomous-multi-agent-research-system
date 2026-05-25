@@ -1,0 +1,41 @@
+name: agentic-ai-backend
+
+on:
+  push:
+    paths:
+      - "agentic-ai-backend/**"
+      - ".github/workflows/agentic-ai-backend.yml"
+  pull_request:
+    paths:
+      - "agentic-ai-backend/**"
+      - ".github/workflows/agentic-ai-backend.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agentic-ai-backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        env:
+          API_KEYS: test-key
+          POSTGRES_DSN: ""
+          REDIS_URL: ""
+          ANTHROPIC_API_KEY: ""
+        run: pytest

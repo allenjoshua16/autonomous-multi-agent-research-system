@@ -1,38 +1,142 @@
-# Autonomous Multi-agent Research System
+# Production Agentic AI Backend Service
 
-A React and TypeScript prototype for AI agents that collaborate with RAG retrieval, shared memory, tool-calling traces, and decision synthesis to automate research and analysis workflows.
+This project is a portfolio-ready AI backend and web console. The backend is built with Python, FastAPI, LangChain, Docker, PostgreSQL, and Redis. The frontend is a React/Vite dashboard that lets you submit prompts, view structured agent responses, inspect fallback behavior, and see latency, cache, token, and cost metadata.
 
-## Features
+The service can call Anthropic Claude when `ANTHROPIC_API_KEY` is configured. If no paid Anthropic key is available, it still runs in fallback mode so the API, auth, caching, logging, metrics, and tests can be demonstrated locally.
 
-- Multi-agent team controls for retrieval, analysis, risk review, and strategy.
-- Local RAG simulation over a typed knowledge corpus.
-- Shared memory entries for goals, source context, and decision confidence.
-- Tool-call audit trail for vector search, ROI scoring, risk checks, and decision writing.
-- Decision brief with confidence score, agent findings, recommendation logic, and recent run history.
-- Responsive operational dashboard built with React, TypeScript, Vite, and lucide-react.
+## What It Does
+
+- Exposes a REST endpoint at `POST /v1/agent/runs`.
+- Protects API routes with an `X-API-Key` header.
+- Applies per-key rate limiting.
+- Runs async agent orchestration with structured responses.
+- Uses deterministic fallback handling when the LLM provider is unavailable.
+- Tracks latency, token usage, estimated cost, cache status, and errors.
+- Supports Redis caching and PostgreSQL persistence.
+- Includes Docker Compose and GitHub Actions CI.
+- Provides a React web console for easier local demos.
 
 ## Project Structure
 
-- `src/App.tsx` contains the research console UI and interactive workflow state.
-- `src/lib/researchSystem.ts` contains the deterministic agent orchestration, retrieval, memory, tools, and recommendation logic.
-- `src/lib/researchSystem.test.ts` covers the core workflow generation behavior.
-- `src/App.css` and `src/index.css` define the responsive interface system.
+- `agentic-ai-backend/` - FastAPI backend service.
+- `agentic-ai-backend/app/` - API routes, middleware, agent orchestration, cache, database, and observability code.
+- `agentic-ai-backend/tests/` - Backend regression tests.
+- `src/` - React/Vite frontend web console.
+- `.github/workflows/agentic-ai-backend.yml` - CI workflow for backend linting and tests.
 
-## Development
+## Install Dependencies
 
-```bash
+From the project root:
+
+```powershell
+cd "C:\Users\allen\OneDrive\Documents\New project"
 npm install
+```
+
+Then install backend dependencies:
+
+```powershell
+cd "C:\Users\allen\OneDrive\Documents\New project\agentic-ai-backend"
+python -m pip install -e ".[dev]"
+```
+
+## Run The Backend Locally
+
+```powershell
+cd "C:\Users\allen\OneDrive\Documents\New project\agentic-ai-backend"
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Health check:
+
+```text
+http://127.0.0.1:8000/healthz
+```
+
+API docs:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+## Test The Main AI Endpoint
+
+Open a second PowerShell window:
+
+```powershell
+$headers = @{ "X-API-Key" = "local-dev-key" }
+$body = @{ prompt = "Test the main AI endpoint in fallback mode." } | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/v1/agent/runs" `
+  -Headers $headers `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+If `ANTHROPIC_API_KEY` is empty, the response should include:
+
+```json
+"fallback_used": true
+```
+
+## Run The Web Console
+
+From the project root:
+
+```powershell
+cd "C:\Users\allen\OneDrive\Documents\New project"
 npm run dev
-npm test
+```
+
+Open:
+
+```text
+http://127.0.0.1:5173
+```
+
+## Run Checks
+
+Frontend:
+
+```powershell
+npm test -- --run
 npm run lint
 npm run build
 ```
 
-The development server starts with Vite. By default, it is available at `http://localhost:5173`.
+Backend:
 
-## Next Steps
+```powershell
+cd "C:\Users\allen\OneDrive\Documents\New project\agentic-ai-backend"
+python -m pytest
+python -m ruff check .
+```
 
-- Replace the local sample corpus with a vector database-backed RAG index.
-- Connect tool calls to real services behind scoped permissions and audit logging.
-- Persist memory with provenance, expiry, and user/workspace boundaries.
-- Add model-backed agent execution with structured response validation.
+## Docker Compose
+
+For a fuller local stack with PostgreSQL and Redis:
+
+```powershell
+cd "C:\Users\allen\OneDrive\Documents\New project\agentic-ai-backend"
+Copy-Item .env.example .env
+docker compose up --build
+```
+
+## Files Not Meant To Be Pushed
+
+These files and folders are intentionally ignored by Git:
+
+- `.env` and `.env.*` - may contain API keys, passwords, database URLs, or other secrets.
+- `node_modules/` - installed JavaScript dependencies; recreated with `npm install`.
+- `dist/` and `dist-ssr/` - generated frontend build output; recreated with `npm run build`.
+- `.vercel/` - local deployment metadata.
+- `__pycache__/`, `*.pyc`, and `*.pyo` - generated Python bytecode.
+- `*.egg-info/` - generated Python package metadata from editable installs.
+- `.pytest_cache/`, `.ruff_cache/`, and `.mypy_cache/` - local tool caches.
+- `.venv/` and `venv/` - local Python virtual environments.
+- `logs/` and `*.log` - local runtime/debug logs.
+- `screenshots/` and `datastory/` - local/generated project artifacts that are not needed to run the app.
+
+The committed `.env.example` file is safe to push because it documents required environment variables without containing real secrets.
