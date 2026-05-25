@@ -1,301 +1,301 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
   Activity,
-  AlertTriangle,
-  BarChart3,
-  Bot,
+  BrainCircuit,
   CheckCircle2,
-  Clock3,
+  ChevronRight,
   Database,
-  FileJson,
-  Gauge,
-  KeyRound,
-  Loader2,
-  RefreshCcw,
-  Send,
-  Server,
+  FileSearch,
+  GitBranch,
+  Layers3,
+  Network,
+  Play,
   ShieldCheck,
   Sparkles,
+  Wrench,
 } from 'lucide-react'
+import {
+  AGENTS,
+  SAMPLE_CORPUS,
+  buildResearchRun,
+  type AgentId,
+  type ResearchRun,
+} from './lib/researchSystem'
 import './App.css'
 
-type AgentAnswer = {
-  summary: string
-  reasoning: string[]
-  actions: string[]
-  risk_level: 'low' | 'medium' | 'high'
-  confidence: number
+const agentTone: Record<AgentId, string> = {
+  scout: 'Retrieval',
+  analyst: 'Analysis',
+  skeptic: 'Risk',
+  strategist: 'Decision',
 }
-
-type AgentStep = {
-  name: string
-  status: 'ok' | 'fallback' | 'error'
-  detail: string
-  latency_ms: number
-}
-
-type AgentRunResponse = {
-  run_id: string
-  cached: boolean
-  fallback_used: boolean
-  answer: AgentAnswer
-  steps: AgentStep[]
-  token_usage: {
-    input_tokens: number
-    output_tokens: number
-    total_tokens: number
-    estimated_cost_usd: number
-  }
-  latency_ms: number
-  created_at: string
-}
-
-const examples = [
-  'Create a production rollout plan for a customer-support AI agent.',
-  'Evaluate cost and latency risks for an LLM API used by 10,000 users.',
-  'Design observability metrics for a multi-user AI backend service.',
-]
 
 function App() {
-  const [apiUrl, setApiUrl] = useState('http://127.0.0.1:8000')
-  const [apiKey, setApiKey] = useState('local-dev-key')
-  const [prompt, setPrompt] = useState(examples[0])
-  const [result, setResult] = useState<AgentRunResponse | null>(null)
-  const [error, setError] = useState('')
-  const [isRunning, setIsRunning] = useState(false)
-  const [showJson, setShowJson] = useState(false)
+  const [topic, setTopic] = useState(
+    'Should a mid-market SaaS company invest in autonomous support agents this quarter?',
+  )
+  const [objective, setObjective] = useState('Board-ready recommendation with risks and next actions')
+  const [selectedAgents, setSelectedAgents] = useState<AgentId[]>([
+    'scout',
+    'analyst',
+    'skeptic',
+    'strategist',
+  ])
+  const [activeStep, setActiveStep] = useState(4)
+  const [runs, setRuns] = useState<ResearchRun[]>(() => [
+    buildResearchRun(
+      'Should a mid-market SaaS company invest in autonomous support agents this quarter?',
+      'Board-ready recommendation with risks and next actions',
+      ['scout', 'analyst', 'skeptic', 'strategist'],
+    ),
+  ])
 
-  const statusLabel = useMemo(() => {
-    if (!result) return 'Ready'
-    if (result.fallback_used) return 'Fallback response'
-    if (result.cached) return 'Cached response'
-    return 'Live model response'
-  }, [result])
+  const currentRun = runs[0]
+  const visibleSteps = currentRun.timeline.slice(0, activeStep + 1)
+  const activeAgentIds = useMemo(() => new Set(selectedAgents), [selectedAgents])
 
-  async function runAgent(event?: FormEvent) {
-    event?.preventDefault()
-    setError('')
-    setIsRunning(true)
-
-    try {
-      const response = await fetch(`${apiUrl.replace(/\/$/, '')}/v1/agent/runs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey,
-        },
-        body: JSON.stringify({ prompt }),
-      })
-
-      if (!response.ok) {
-        const message = await response.text()
-        throw new Error(message || `Request failed with ${response.status}`)
+  function toggleAgent(agentId: AgentId) {
+    setSelectedAgents((current) => {
+      if (current.includes(agentId) && current.length > 2) {
+        return current.filter((id) => id !== agentId)
       }
+      if (!current.includes(agentId)) {
+        return [...current, agentId]
+      }
+      return current
+    })
+  }
 
-      const data = (await response.json()) as AgentRunResponse
-      setResult(data)
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Request failed')
-    } finally {
-      setIsRunning(false)
-    }
+  function runWorkflow() {
+    const nextRun = buildResearchRun(topic, objective, selectedAgents)
+    setRuns((current) => [nextRun, ...current].slice(0, 4))
+    setActiveStep(nextRun.timeline.length - 1)
   }
 
   return (
     <main className="app-shell">
-      <section className="hero-band">
-        <div className="hero-copy">
-          <div className="product-mark">
-            <Bot size={30} />
-          </div>
-          <p className="eyebrow">Production Agentic AI Backend</p>
-          <h1>Run, monitor, and inspect AI agent requests from one web console.</h1>
-          <p className="hero-subtitle">
-            Send prompts to the FastAPI service, see structured answers, track latency and token
-            cost, and confirm caching, fallback handling, and observability behavior.
-          </p>
+      <section className="top-band">
+        <div className="brand-mark">
+          <Network size={28} />
+        </div>
+        <div>
+          <p className="eyebrow">Autonomous Multi-agent Research System</p>
+          <h1>Collaborative AI agents for RAG research, memory, tools, and decisions</h1>
+        </div>
+        <button className="primary-action" type="button" onClick={runWorkflow}>
+          <Play size={18} />
+          Run agents
+        </button>
+      </section>
+
+      <section className="control-grid" aria-label="Research controls">
+        <div className="query-panel">
+          <label htmlFor="topic">Research question</label>
+          <textarea
+            id="topic"
+            value={topic}
+            onChange={(event) => setTopic(event.target.value)}
+            rows={4}
+          />
+          <label htmlFor="objective">Decision objective</label>
+          <input
+            id="objective"
+            value={objective}
+            onChange={(event) => setObjective(event.target.value)}
+          />
         </div>
 
-        <div className="status-panel" aria-label="Service quick links">
-          <StatusItem icon={<Server size={18} />} label="API" value={apiUrl} />
-          <StatusItem icon={<ShieldCheck size={18} />} label="Auth" value="X-API-Key required" />
-          <StatusItem icon={<Gauge size={18} />} label="State" value={statusLabel} />
-          <div className="quick-links">
-            <a href={`${apiUrl}/docs`} target="_blank" rel="noreferrer">
-              API docs
-            </a>
-            <a href={`${apiUrl}/metrics`} target="_blank" rel="noreferrer">
-              Metrics
-            </a>
-            <a href={`${apiUrl}/healthz`} target="_blank" rel="noreferrer">
-              Health
-            </a>
+        <div className="agent-panel">
+          <div className="panel-heading">
+            <BrainCircuit size={18} />
+            <h2>Agent team</h2>
+          </div>
+          <div className="agent-list">
+            {AGENTS.map((agent) => (
+              <button
+                className={activeAgentIds.has(agent.id) ? 'agent-card selected' : 'agent-card'}
+                key={agent.id}
+                type="button"
+                onClick={() => toggleAgent(agent.id)}
+                aria-pressed={activeAgentIds.has(agent.id)}
+              >
+                <span className="agent-initial">{agent.name.charAt(0)}</span>
+                <span>
+                  <strong>{agent.name}</strong>
+                  <small>{agentTone[agent.id]} agent</small>
+                </span>
+                {activeAgentIds.has(agent.id) && <CheckCircle2 size={18} />}
+              </button>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="workspace-grid">
-        <form className="request-panel" onSubmit={runAgent}>
+      <section className="system-grid">
+        <aside className="pipeline-panel">
           <div className="panel-heading">
-            <Sparkles size={19} />
-            <h2>Agent request</h2>
+            <GitBranch size={18} />
+            <h2>Run pipeline</h2>
           </div>
-
-          <div className="connection-grid">
-            <label>
-              <span>Backend URL</span>
-              <input value={apiUrl} onChange={(event) => setApiUrl(event.target.value)} />
-            </label>
-            <label>
-              <span>API key</span>
-              <div className="key-input">
-                <KeyRound size={17} />
-                <input value={apiKey} onChange={(event) => setApiKey(event.target.value)} />
-              </div>
-            </label>
-          </div>
-
-          <label className="prompt-field">
-            <span>Prompt</span>
-            <textarea
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              rows={8}
-              placeholder="Ask the agent to plan, evaluate, summarize, or troubleshoot..."
-            />
-          </label>
-
-          <div className="example-row" aria-label="Prompt examples">
-            {examples.map((example) => (
-              <button key={example} type="button" onClick={() => setPrompt(example)}>
-                {example}
+          <div className="timeline">
+            {currentRun.timeline.map((step, index) => (
+              <button
+                className={index <= activeStep ? 'timeline-step complete' : 'timeline-step'}
+                key={step.title}
+                type="button"
+                onClick={() => setActiveStep(index)}
+              >
+                <span>{index + 1}</span>
+                <strong>{step.title}</strong>
+                <small>{step.detail}</small>
               </button>
             ))}
           </div>
+        </aside>
 
-          <button className="primary-action" type="submit" disabled={isRunning || !prompt.trim()}>
-            {isRunning ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
-            {isRunning ? 'Running agent' : 'Run agent'}
-          </button>
-
-          {error && (
-            <div className="error-banner" role="alert">
-              <AlertTriangle size={18} />
-              <span>{error}</span>
-            </div>
-          )}
-        </form>
-
-        <section className="answer-panel" aria-live="polite">
-          <div className="panel-heading split">
+        <section className="brief-panel">
+          <div className="brief-header">
             <div>
-              <Activity size={19} />
-              <h2>Agent response</h2>
+              <p className="eyebrow">Decision brief</p>
+              <h2>{currentRun.recommendation.title}</h2>
             </div>
-            <button className="secondary-action" type="button" onClick={() => setShowJson((v) => !v)}>
-              <FileJson size={17} />
-              {showJson ? 'Hide JSON' : 'Show JSON'}
-            </button>
+            <div className="confidence">
+              <strong>{currentRun.confidence}%</strong>
+              <span>confidence</span>
+            </div>
           </div>
 
-          {!result ? (
-            <div className="empty-state">
-              <Bot size={42} />
-              <h3>No run yet</h3>
-              <p>Submit a prompt to see the backend response, timing, cache status, and steps.</p>
-            </div>
-          ) : (
-            <div className="response-stack">
-              <div className={`run-state ${result.fallback_used ? 'fallback' : 'ok'}`}>
-                {result.fallback_used ? <RefreshCcw size={18} /> : <CheckCircle2 size={18} />}
-                <span>{statusLabel}</span>
-              </div>
+          <div className="status-strip">
+            {visibleSteps.map((step) => (
+              <span key={step.title}>
+                <Activity size={14} />
+                {step.title}
+              </span>
+            ))}
+          </div>
 
-              <h3>{result.answer.summary}</h3>
+          <p className="brief-summary">{currentRun.recommendation.summary}</p>
 
-              <MetricGrid result={result} />
-
-              <ResponseList title="Reasoning" items={result.answer.reasoning} />
-              <ResponseList title="Recommended actions" items={result.answer.actions} />
-
-              <div className="step-list">
-                <h3>Execution steps</h3>
-                {result.steps.map((step) => (
-                  <article key={`${step.name}-${step.latency_ms}`}>
-                    <strong>{step.name}</strong>
-                    <span>{step.status}</span>
-                    <p>{step.detail}</p>
-                    <small>{step.latency_ms.toFixed(1)} ms</small>
-                  </article>
-                ))}
-              </div>
-
-              {showJson && <pre className="json-block">{JSON.stringify(result, null, 2)}</pre>}
-            </div>
-          )}
+          <div className="insight-grid">
+            {currentRun.agentFindings.map((finding) => (
+              <article className="insight-card" key={finding.agentId}>
+                <div>
+                  <span className="agent-initial compact">
+                    {AGENTS.find((agent) => agent.id === finding.agentId)?.name.charAt(0)}
+                  </span>
+                  <h3>{finding.heading}</h3>
+                </div>
+                <p>{finding.detail}</p>
+              </article>
+            ))}
+          </div>
         </section>
+      </section>
+
+      <section className="evidence-grid">
+        <WorkspacePanel
+          icon={<FileSearch size={18} />}
+          title="RAG retrieval"
+          items={currentRun.retrievals.map((item) => ({
+            title: item.title,
+            detail: `${item.relevance}% match · ${item.excerpt}`,
+          }))}
+        />
+        <WorkspacePanel
+          icon={<Database size={18} />}
+          title="Shared memory"
+          items={currentRun.memory.map((item) => ({
+            title: item.key,
+            detail: item.value,
+          }))}
+        />
+        <WorkspacePanel
+          icon={<Wrench size={18} />}
+          title="Tool calls"
+          items={currentRun.toolCalls.map((item) => ({
+            title: item.tool,
+            detail: `${item.agent}: ${item.result}`,
+          }))}
+        />
+      </section>
+
+      <section className="decision-grid">
+        <div className="decision-panel">
+          <div className="panel-heading">
+            <ShieldCheck size={18} />
+            <h2>Recommendation logic</h2>
+          </div>
+          {currentRun.recommendation.actions.map((action) => (
+            <div className="action-row" key={action}>
+              <ChevronRight size={17} />
+              <span>{action}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="source-panel">
+          <div className="panel-heading">
+            <Layers3 size={18} />
+            <h2>Knowledge base</h2>
+          </div>
+          <div className="source-list">
+            {SAMPLE_CORPUS.map((source) => (
+              <article key={source.id}>
+                <strong>{source.title}</strong>
+                <span>{source.type}</span>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className="history-panel">
+          <div className="panel-heading">
+            <Sparkles size={18} />
+            <h2>Recent runs</h2>
+          </div>
+          {runs.map((run) => (
+            <button
+              className="history-item"
+              key={run.id}
+              type="button"
+              onClick={() => {
+                setRuns((current) => [run, ...current.filter((item) => item.id !== run.id)])
+                setActiveStep(run.timeline.length - 1)
+              }}
+            >
+              <strong>{run.topic}</strong>
+              <span>{run.confidence}% confidence</span>
+            </button>
+          ))}
+        </div>
       </section>
     </main>
   )
 }
 
-function MetricGrid({ result }: { result: AgentRunResponse }) {
-  const metrics = [
-    {
-      icon: <Clock3 size={18} />,
-      label: 'Latency',
-      value: `${result.latency_ms.toFixed(0)} ms`,
-    },
-    {
-      icon: <Database size={18} />,
-      label: 'Cache',
-      value: result.cached ? 'Hit' : 'Miss',
-    },
-    {
-      icon: <BarChart3 size={18} />,
-      label: 'Tokens',
-      value: result.token_usage.total_tokens.toLocaleString(),
-    },
-    {
-      icon: <Gauge size={18} />,
-      label: 'Cost',
-      value: `$${result.token_usage.estimated_cost_usd.toFixed(6)}`,
-    },
-  ]
-
+function WorkspacePanel({
+  icon,
+  title,
+  items,
+}: {
+  icon: ReactNode
+  title: string
+  items: Array<{ title: string; detail: string }>
+}) {
   return (
-    <div className="metric-grid">
-      {metrics.map((metric) => (
-        <article key={metric.label}>
-          {metric.icon}
-          <span>{metric.label}</span>
-          <strong>{metric.value}</strong>
-        </article>
-      ))}
-    </div>
-  )
-}
-
-function ResponseList({ title, items }: { title: string; items: string[] }) {
-  return (
-    <div className="response-list">
-      <h3>{title}</h3>
-      {items.map((item) => (
-        <div key={item} className="response-row">
-          <CheckCircle2 size={17} />
-          <span>{item}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function StatusItem({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div className="status-item">
-      {icon}
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div className="workspace-panel">
+      <div className="panel-heading">
+        {icon}
+        <h2>{title}</h2>
+      </div>
+      <div className="workspace-list">
+        {items.map((item) => (
+          <article key={`${title}-${item.title}`}>
+            <strong>{item.title}</strong>
+            <p>{item.detail}</p>
+          </article>
+        ))}
+      </div>
     </div>
   )
 }

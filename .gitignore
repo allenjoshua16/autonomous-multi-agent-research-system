@@ -13,9 +13,6 @@ dist-ssr
 screenshots
 datastory
 *.local
-.env
-.env.*
-!.env.example
 
 # Editor directories and files
 .vscode/*
@@ -29,13 +26,3 @@ datastory
 *.sw?
 
 .vercel
-
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
-.venv/
-venv/
